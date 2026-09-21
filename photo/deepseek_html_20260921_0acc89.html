@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head><title>Icon Generator</title></head>
+<body style="background:#1a1a2e;color:#fff;font-family:sans-serif;text-align:center;padding:40px;">
+    <h1>📸 Photobooth Icon Generator</h1>
+    <p>Klik tombol untuk download icon.</p>
+    <div style="display:flex;gap:30px;justify-content:center;margin-top:30px;flex-wrap:wrap;">
+        <div>
+            <canvas id="c192" width="192" height="192" style="border-radius:24px;"></canvas>
+            <p>icon-192.png</p>
+            <button onclick="download(192)">Download</button>
+        </div>
+        <div>
+            <canvas id="c512" width="512" height="512" style="border-radius:48px;width:256px;height:256px;"></canvas>
+            <p>icon-512.png</p>
+            <button onclick="download(512)">Download</button>
+        </div>
+    </div>
+
+    <script>
+        function drawIcon(canvas) {
+            const ctx = canvas.getContext('2d');
+            const s = canvas.width;
+            
+            // Background gradient
+            const grad = ctx.createLinearGradient(0, 0, s, s);
+            grad.addColorStop(0, '#1a1a2e');
+            grad.addColorStop(0.5, '#16213e');
+            grad.addColorStop(1, '#0f3460');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, s, s);
+            
+            // Camera body
+            const camW = s * 0.65;
+            const camH = s * 0.45;
+            const camX = (s - camW) / 2;
+            const camY = (s - camH) / 2 + s * 0.03;
+            
+            // Camera gradient
+            const camGrad = ctx.createLinearGradient(camX, camY, camX, camY + camH);
+            camGrad.addColorStop(0, '#ff6b9d');
+            camGrad.addColorStop(1, '#ff8e53');
+            
+            ctx.fillStyle = camGrad;
+            ctx.beginPath();
+            const r = s * 0.06;
+            ctx.moveTo(camX + r, camY);
+            ctx.lineTo(camX + camW - r, camY);
+            ctx.quadraticCurveTo(camX + camW, camY, camX + camW, camY + r);
+            ctx.lineTo(camX + camW, camY + camH - r);
+            ctx.quadraticCurveTo(camX + camW, camY + camH, camX + camW - r, camY + camH);
+            ctx.lineTo(camX + r, camY + camH);
+            ctx.quadraticCurveTo(camX, camY + camH, camX, camY + camH - r);
+            ctx.lineTo(camX, camY + r);
+            ctx.quadraticCurveTo(camX, camY, camX + r, camY);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Lens (circle)
+            const lensR = s * 0.13;
+            const lensX = s / 2;
+            const lensY = camY + camH / 2;
+            
+            ctx.fillStyle = '#1a1a2e';
+            ctx.beginPath();
+            ctx.arc(lensX, lensY, lensR, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Lens inner
+            const lensGrad = ctx.createRadialGradient(lensX - lensR * 0.3, lensY - lensR * 0.3, 2, lensX, lensY, lensR);
+            lensGrad.addColorStop(0, '#6bcbff');
+            lensGrad.addColorStop(1, '#0f3460');
+            ctx.fillStyle = lensGrad;
+            ctx.beginPath();
+            ctx.arc(lensX, lensY, lensR * 0.75, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Lens highlight
+            ctx.fillStyle = 'rgba(255,255,255,0.6)';
+            ctx.beginPath();
+            ctx.arc(lensX - lensR * 0.3, lensY - lensR * 0.35, lensR * 0.18, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Flash dot
+            ctx.fillStyle = '#ffd93d';
+            ctx.beginPath();
+            ctx.arc(camX + camW * 0.8, camY + camH * 0.25, s * 0.025, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Top button
+            ctx.fillStyle = '#ffd93d';
+            ctx.beginPath();
+            ctx.arc(camX + camW * 0.2, camY + camH * 0.25, s * 0.02, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // "📸" emoji hint - optional
+            ctx.font = `${s * 0.15}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('✨', s * 0.5, camY - s * 0.08);
+        }
+        
+        function download(size) {
+            const canvas = document.getElementById('c' + size);
+            drawIcon(canvas);
+            canvas.toBlob((blob) => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `icon-${size}.png`;
+                a.click();
+                URL.revokeObjectURL(url);
+            }, 'image/png');
+        }
+        
+        // Auto-draw
+        drawIcon(document.getElementById('c192'));
+        drawIcon(document.getElementById('c512'));
+    </script>
+</body>
+</html>

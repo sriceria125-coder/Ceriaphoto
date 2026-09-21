@@ -1,0 +1,1470 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#1a1a2e">
+    <meta name="description" content="Photobooth offline dengan berbagai strip dan filter. Semua foto diproses di perangkat Anda.">
+    
+    <!-- PWA -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Photobooth">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+    
+    <title>Photobooth - Studio Foto Saku</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+        }
+        html, body {
+            height: 100%;
+            overflow-x: hidden;
+            overscroll-behavior: none;
+            touch-action: manipulation;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(160deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            min-height: 100dvh;
+            color: #fff;
+            padding: 12px;
+            padding-top: env(safe-area-inset-top, 12px);
+            padding-bottom: env(safe-area-inset-bottom, 12px);
+            font-size: 14px;
+        }
+        .app {
+            max-width: 560px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        header {
+            text-align: center;
+            padding: 4px 0;
+            position: relative;
+        }
+        header h1 {
+            font-size: 22px;
+            background: linear-gradient(90deg, #ff6b9d, #ffd93d, #6bcbff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: 1px;
+            margin-bottom: 2px;
+        }
+        header p {
+            opacity: 0.6;
+            font-size: 11px;
+        }
+        /* Install button */
+        .install-btn {
+            position: absolute;
+            top: 0;
+            right: 0;
+            background: linear-gradient(135deg, #1dd1a1, #10ac84);
+            color: #fff;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(29, 209, 161, 0.4);
+            display: none;
+            align-items: center;
+            gap: 4px;
+            font-family: inherit;
+        }
+        .install-btn.show { display: inline-flex; }
+        .install-btn:active { transform: scale(0.95); }
+
+        /* Status bar online/offline */
+        .status-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: #ff6b6b;
+            color: #fff;
+            text-align: center;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 4px;
+            z-index: 9999;
+            transform: translateY(-100%);
+            transition: transform 0.3s ease;
+        }
+        .status-bar.show { transform: translateY(0); }
+        .status-bar.online { background: #10ac84; }
+
+        /* CAMERA AREA */
+        .camera-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 10px;
+            position: relative;
+        }
+        .camera-frame {
+            position: relative;
+            border-radius: 14px;
+            overflow: hidden;
+            background: #000;
+            aspect-ratio: 3/4;
+            max-height: 55vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto;
+            width: 100%;
+        }
+        @media (orientation: landscape) and (max-height: 500px) {
+            .camera-frame { aspect-ratio: 4/3; max-height: 70vh; }
+        }
+        #video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+            transform: scaleX(-1);
+        }
+        .camera-overlay {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 10px;
+        }
+        .rec-indicator {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 5px 12px;
+            border-radius: 16px;
+            font-size: 11px;
+            font-weight: 700;
+            width: fit-content;
+            backdrop-filter: blur(4px);
+            letter-spacing: 1px;
+        }
+        .rec-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #ff3333;
+            animation: blink 1s infinite;
+        }
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        .countdown-big {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 140px;
+            font-weight: 900;
+            color: #fff;
+            text-shadow: 0 0 40px rgba(255, 107, 157, 0.8);
+            pointer-events: none;
+            z-index: 10;
+            animation: countPop 0.5s ease-out;
+        }
+        @keyframes countPop {
+            0% { transform: scale(0.5); opacity: 0; }
+            50% { transform: scale(1.2); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .flash {
+            position: absolute;
+            inset: 0;
+            background: #fff;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 20;
+        }
+        .flash.active {
+            animation: flashAnim 0.4s ease-out;
+        }
+        @keyframes flashAnim {
+            0% { opacity: 0; }
+            20% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+
+        /* THUMBNAILS */
+        .shots-preview {
+            display: flex;
+            gap: 6px;
+            margin-top: 8px;
+            overflow-x: auto;
+            padding: 4px 0;
+            min-height: 44px;
+            scrollbar-width: none;
+            -webkit-overflow-scrolling: touch;
+        }
+        .shots-preview::-webkit-scrollbar { display: none; }
+        .shot-thumb {
+            width: 56px;
+            height: 42px;
+            border-radius: 6px;
+            object-fit: cover;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            flex-shrink: 0;
+            animation: thumbIn 0.4s ease-out;
+        }
+        @keyframes thumbIn {
+            0% { transform: scale(0); }
+            100% { transform: scale(1); }
+        }
+
+        /* PANEL */
+        .panel {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 14px;
+        }
+        .section {
+            margin-bottom: 14px;
+        }
+        .section:last-child { margin-bottom: 0; }
+        .section-title {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            opacity: 0.55;
+            margin-bottom: 8px;
+            font-weight: 700;
+        }
+        .mode-toggle {
+            display: flex;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            padding: 3px;
+            margin-bottom: 12px;
+        }
+        .mode-btn {
+            flex: 1;
+            padding: 10px;
+            text-align: center;
+            border-radius: 9px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 700;
+            transition: all 0.2s;
+            border: none;
+            background: transparent;
+            color: rgba(255, 255, 255, 0.6);
+            font-family: inherit;
+        }
+        .mode-btn.active {
+            background: linear-gradient(135deg, #ff6b9d, #ff8e53);
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(255, 107, 157, 0.4);
+        }
+        .strip-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+        }
+        .strip-option {
+            background: rgba(255, 255, 255, 0.06);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 8px 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+            font-size: 10px;
+            font-weight: 700;
+            font-family: inherit;
+            color: #fff;
+            line-height: 1.2;
+        }
+        .strip-option:active { transform: scale(0.95); }
+        .strip-option.active {
+            border-color: #ff6b9d;
+            background: rgba(255, 107, 157, 0.15);
+            box-shadow: 0 0 12px rgba(255, 107, 157, 0.3);
+        }
+        .strip-option .strip-icon {
+            display: block;
+            font-size: 18px;
+            margin-bottom: 2px;
+        }
+        .filter-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 6px;
+        }
+        .filter-option {
+            cursor: pointer;
+            border-radius: 9px;
+            overflow: hidden;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.2s;
+        }
+        .filter-option:active { transform: scale(0.95); }
+        .filter-option.active {
+            border-color: #ffd93d;
+            box-shadow: 0 0 10px rgba(255, 217, 61, 0.5);
+        }
+        .filter-swatch {
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 9px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: #fff;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+        }
+        .frame-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 6px;
+        }
+        .frame-option {
+            height: 40px;
+            border-radius: 9px;
+            cursor: pointer;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 9px;
+            font-weight: 700;
+            color: #fff;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+            text-transform: uppercase;
+            font-family: inherit;
+        }
+        .frame-option:active { transform: scale(0.95); }
+        .frame-option.active {
+            border-color: #ffd93d;
+            box-shadow: 0 0 10px rgba(255, 217, 61, 0.5);
+        }
+        .btn {
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-radius: 14px;
+            font-size: 15px;
+            font-weight: 800;
+            cursor: pointer;
+            transition: all 0.15s;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-family: inherit;
+            color: #fff;
+            touch-action: manipulation;
+        }
+        .btn:active:not(:disabled) { transform: scale(0.97); }
+        .btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #ff6b9d, #ff8e53);
+            box-shadow: 0 6px 20px rgba(255, 107, 157, 0.35);
+            margin-bottom: 8px;
+        }
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+        .btn-download {
+            background: linear-gradient(135deg, #6bcbff, #667eea);
+            box-shadow: 0 6px 20px rgba(107, 203, 255, 0.35);
+        }
+        .btn-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+        }
+        .modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 12px;
+            padding-top: env(safe-area-inset-top, 12px);
+            padding-bottom: env(safe-area-inset-bottom, 12px);
+            overflow-y: auto;
+        }
+        .modal.active { display: flex; }
+        .modal-content {
+            background: linear-gradient(135deg, #1e1e3a, #2a2a4a);
+            border-radius: 20px;
+            padding: 16px;
+            max-width: 480px;
+            width: 100%;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            max-height: 92vh;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        .modal-content h2 {
+            text-align: center;
+            margin-bottom: 12px;
+            background: linear-gradient(90deg, #ff6b9d, #ffd93d);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-size: 20px;
+        }
+        .result-image-wrapper {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 14px;
+            padding: 8px;
+            display: flex;
+            justify-content: center;
+            margin-bottom: 12px;
+            max-height: 60vh;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        #resultImage {
+            max-width: 100%;
+            max-height: 55vh;
+            border-radius: 10px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        }
+        .toast {
+            position: fixed;
+            bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+            left: 50%;
+            transform: translateX(-50%) translateY(120px);
+            background: rgba(30, 30, 58, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            padding: 12px 20px;
+            border-radius: 40px;
+            font-size: 13px;
+            font-weight: 600;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+            transition: transform 0.3s ease;
+            z-index: 2000;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            max-width: 90vw;
+            white-space: nowrap;
+        }
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+        }
+        .permission-msg {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            text-align: center;
+            background: rgba(0, 0, 0, 0.92);
+            z-index: 5;
+            border-radius: 14px;
+            gap: 10px;
+        }
+        .permission-msg h3 {
+            color: #ff6b9d;
+            font-size: 16px;
+        }
+        .permission-msg p {
+            font-size: 12px;
+            opacity: 0.8;
+            line-height: 1.5;
+            max-width: 280px;
+        }
+        .permission-msg .btn {
+            max-width: 240px;
+        }
+        .camera-select {
+            width: 100%;
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            background: rgba(255, 255, 255, 0.08);
+            color: #fff;
+            font-size: 12px;
+            font-family: inherit;
+            font-weight: 600;
+            -webkit-appearance: none;
+            appearance: none;
+            cursor: pointer;
+        }
+        .camera-select option {
+            background: #1e1e3a;
+            color: #fff;
+        }
+        @media (max-width: 360px) {
+            header h1 { font-size: 18px; }
+            .filter-swatch { height: 36px; font-size: 8px; }
+            .frame-option { height: 36px; font-size: 8px; }
+            .strip-option { font-size: 9px; padding: 6px 2px; }
+            .strip-option .strip-icon { font-size: 16px; }
+            .btn { padding: 14px; font-size: 14px; }
+        }
+        @media (min-width: 600px) {
+            .camera-frame { aspect-ratio: 4/5; max-height: 60vh; }
+            .filter-swatch { height: 48px; font-size: 10px; }
+        }
+        /* iOS install hint */
+        .ios-hint {
+            display: none;
+            background: rgba(107, 203, 255, 0.15);
+            border: 1px solid rgba(107, 203, 255, 0.3);
+            border-radius: 12px;
+            padding: 10px 12px;
+            font-size: 11px;
+            line-height: 1.5;
+            margin-bottom: 12px;
+        }
+        .ios-hint.show { display: block; }
+        .ios-hint strong { color: #6bcbff; }
+    </style>
+</head>
+<body>
+    <div class="status-bar" id="statusBar"></div>
+
+    <div class="app">
+        <header>
+            <h1>📸 PHOTOBOOTH</h1>
+            <p>Studio foto saku — offline & privasi terjaga</p>
+            <button class="install-btn" id="installBtn">
+                <span>⬇️</span> Install
+            </button>
+        </header>
+
+        <!-- iOS Install hint -->
+        <div class="ios-hint" id="iosHint">
+            <strong>📱 Install di iPhone:</strong> Ketuk tombol <strong>Bagikan</strong> (⬆️) di Safari, lalu pilih <strong>"Tambahkan ke Layar Utama"</strong>.
+        </div>
+
+        <div class="camera-card">
+            <div class="camera-frame">
+                <video id="video" autoplay playsinline muted></video>
+                <div class="camera-overlay">
+                    <div class="rec-indicator">
+                        <div class="rec-dot"></div>
+                        <span id="statusText">SIAP</span>
+                    </div>
+                </div>
+                <div class="flash" id="flash"></div>
+                <div id="permissionMsg" class="permission-msg">
+                    <h3>🎥 Kamera Diperlukan</h3>
+                    <p id="permText">Ketuk tombol di bawah untuk mengizinkan akses kamera. Semua foto diproses di perangkat Anda.</p>
+                    <button class="btn btn-primary" id="enableCamBtn">AKTIFKAN KAMERA</button>
+                </div>
+            </div>
+            <div class="shots-preview" id="shotsPreview"></div>
+        </div>
+
+        <div class="panel">
+            <div class="mode-toggle">
+                <button class="mode-btn active" data-mode="strip">STRIP</button>
+                <button class="mode-btn" data-mode="single">FOTO TUNGGAL</button>
+            </div>
+
+            <div class="section" id="cameraSelectSection" style="display:none;">
+                <div class="section-title">Pilih Kamera</div>
+                <select class="camera-select" id="cameraSelect"></select>
+            </div>
+
+            <div class="section" id="stripSection">
+                <div class="section-title">Jenis Strip</div>
+                <div class="strip-grid" id="stripGrid">
+                    <div class="strip-option active" data-strip="classic3">
+                        <span class="strip-icon">🎞️</span>Klasik 3
+                    </div>
+                    <div class="strip-option" data-strip="classic4">
+                        <span class="strip-icon">📽️</span>Klasik 4
+                    </div>
+                    <div class="strip-option" data-strip="vertical6">
+                        <span class="strip-icon">🎬</span>Vertikal 6
+                    </div>
+                    <div class="strip-option" data-strip="polaroid">
+                        <span class="strip-icon">🖼️</span>Polaroid
+                    </div>
+                    <div class="strip-option" data-strip="grid4">
+                        <span class="strip-icon">🔲</span>Grid 2x2
+                    </div>
+                    <div class="strip-option" data-strip="photocard">
+                        <span class="strip-icon">💳</span>Photocard
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">Filter Warna</div>
+                <div class="filter-grid" id="filterGrid">
+                    <div class="filter-option active" data-filter="normal">
+                        <div class="filter-swatch" style="background:linear-gradient(135deg,#667eea,#764ba2);">Normal</div>
+                    </div>
+                    <div class="filter-option" data-filter="grayscale">
+                        <div class="filter-swatch" style="background:linear-gradient(135deg,#999,#333);">B&W</div>
+                    </div>
+                    <div class="filter-option" data-filter="sepia">
+                        <div class="filter-swatch" style="background:linear-gradient(135deg,#d4a373,#8b5e34);">Sepia</div>
+                    </div>
+                    <div class="filter-option" data-filter="vintage">
+                        <div class="filter-swatch" style="background:linear-gradient(135deg,#e8b06e,#8b5a2b);">Vintage</div>
+                    </div>
+                    <div class="filter-option" data-filter="warm">
+                        <div class="filter-swatch" style="background:linear-gradient(135deg,#ff9a56,#ff6b6b);">Warm</div>
+                    </div>
+                    <div class="filter-option" data-filter="cool">
+                        <div class="filter-swatch" style="background:linear-gradient(135deg,#4facfe,#00f2fe);">Cool</div>
+                    </div>
+                    <div class="filter-option" data-filter="vivid">
+                        <div class="filter-swatch" style="background:linear-gradient(135deg,#f093fb,#f5576c);">Vivid</div>
+                    </div>
+                    <div class="filter-option" data-filter="fade">
+                        <div class="filter-swatch" style="background:linear-gradient(135deg,#bdc3c7,#2c3e50);">Fade</div>
+                    </div>
+                    <div class="filter-option" data-filter="dreamy">
+                        <div class="filter-swatch" style="background:linear-gradient(135deg,#ffecd2,#fcb69f);">Dreamy</div>
+                    </div>
+                    <div class="filter-option" data-filter="noir">
+                        <div class="filter-swatch" style="background:linear-gradient(135deg,#232526,#414345);">Noir</div>
+                    </div>
+                    <div class="filter-option" data-filter="cyberpunk">
+                        <div class="filter-swatch" style="background:linear-gradient(135deg,#fc466b,#3f5efb);">Cyber</div>
+                    </div>
+                    <div class="filter-option" data-filter="pink">
+                        <div class="filter-swatch" style="background:linear-gradient(135deg,#ff9a9e,#fad0c4);">Pink</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">Bingkai Strip</div>
+                <div class="frame-grid" id="frameGrid">
+                    <div class="frame-option active" data-frame="white" style="background:#fff;color:#000;text-shadow:none;">Putih</div>
+                    <div class="frame-option" data-frame="black" style="background:#000;border:1px solid #444;">Hitam</div>
+                    <div class="frame-option" data-frame="pink" style="background:linear-gradient(135deg,#ff9a9e,#fecfef);color:#5a2a4d;text-shadow:none;">Pink</div>
+                    <div class="frame-option" data-frame="blue" style="background:linear-gradient(135deg,#4facfe,#00f2fe);color:#003366;text-shadow:none;">Biru</div>
+                </div>
+            </div>
+
+            <div class="section">
+                <button class="btn btn-primary" id="captureBtn" disabled>
+                    📷 MULAI FOTO
+                </button>
+                <div class="btn-group">
+                    <button class="btn btn-secondary" id="retakeBtn" disabled>🔄 Reset</button>
+                    <button class="btn btn-secondary" id="switchCamBtn">🔄 Kamera</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="resultModal">
+        <div class="modal-content">
+            <h2>✨ Hasil Foto Anda</h2>
+            <div class="result-image-wrapper">
+                <img id="resultImage" alt="Hasil Photobooth">
+            </div>
+            <button class="btn btn-download" id="downloadBtn">⬇️ UNDUH FOTO</button>
+            <div style="height:8px;"></div>
+            <button class="btn btn-secondary" id="closeModalBtn">TUTUP</button>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        (function() {
+            'use strict';
+
+            // ===== SERVICE WORKER =====
+            if ('serviceWorker' in navigator) {
+                window.addEventListener('load', () => {
+                    navigator.serviceWorker.register('sw.js')
+                        .then(reg => console.log('✅ SW registered:', reg.scope))
+                        .catch(err => console.warn('⚠️ SW error:', err));
+                });
+            }
+
+            // ===== PWA INSTALL PROMPT =====
+            let deferredPrompt = null;
+            const installBtn = document.getElementById('installBtn');
+            const iosHint = document.getElementById('iosHint');
+
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();
+                deferredPrompt = e;
+                installBtn.classList.add('show');
+            });
+
+            installBtn.addEventListener('click', async () => {
+                if (!deferredPrompt) return;
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                console.log('Install outcome:', outcome);
+                deferredPrompt = null;
+                installBtn.classList.remove('show');
+            });
+
+            window.addEventListener('appinstalled', () => {
+                console.log('✅ PWA installed');
+                deferredPrompt = null;
+                installBtn.classList.remove('show');
+                showToast('Aplikasi berhasil di-install!', '🎉');
+            });
+
+            // Detect iOS (no beforeinstallprompt)
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+            const isStandalone = window.matchMedia('(display-mode: standalone)').matches 
+                                 || window.navigator.standalone === true;
+
+            if (isIOS && !isStandalone) {
+                // Tampilkan hint setelah 2 detik
+                setTimeout(() => iosHint.classList.add('show'), 2000);
+            }
+
+            // ===== ONLINE/OFFLINE STATUS =====
+            const statusBar = document.getElementById('statusBar');
+            function updateStatus() {
+                if (navigator.onLine) {
+                    statusBar.classList.remove('show');
+                    statusBar.classList.add('online');
+                } else {
+                    statusBar.textContent = '📴 Mode Offline — Aplikasi tetap berfungsi';
+                    statusBar.classList.add('show');
+                    statusBar.classList.remove('online');
+                }
+            }
+            window.addEventListener('online', () => {
+                statusBar.textContent = '✅ Online kembali';
+                updateStatus();
+                setTimeout(() => statusBar.classList.remove('show'), 2000);
+            });
+            window.addEventListener('offline', updateStatus);
+            updateStatus();
+
+            // ===== ELEMENTS =====
+            const video = document.getElementById('video');
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const flash = document.getElementById('flash');
+            const statusText = document.getElementById('statusText');
+            const shotsPreview = document.getElementById('shotsPreview');
+            const permissionMsg = document.getElementById('permissionMsg');
+            const permText = document.getElementById('permText');
+            const enableCamBtn = document.getElementById('enableCamBtn');
+            const captureBtn = document.getElementById('captureBtn');
+            const retakeBtn = document.getElementById('retakeBtn');
+            const switchCamBtn = document.getElementById('switchCamBtn');
+            const resultModal = document.getElementById('resultModal');
+            const resultImage = document.getElementById('resultImage');
+            const downloadBtn = document.getElementById('downloadBtn');
+            const closeModalBtn = document.getElementById('closeModalBtn');
+            const toast = document.getElementById('toast');
+            const stripSection = document.getElementById('stripSection');
+            const cameraSelect = document.getElementById('cameraSelect');
+            const cameraSelectSection = document.getElementById('cameraSelectSection');
+
+            let stream = null;
+            let facingMode = 'user';
+            let currentDeviceId = null;
+            let currentFilter = 'normal';
+            let currentStrip = 'classic3';
+            let currentFrame = 'white';
+            let currentMode = 'strip';
+            let capturedPhotos = [];
+            let isCapturing = false;
+            let cameraReady = false;
+            let videoDevices = [];
+
+            const STRIP_CONFIG = {
+                classic3: { cols: 1, rows: 3, width: 400, height: 1200, photoH: 380, gap: 10, padding: 10 },
+                classic4: { cols: 1, rows: 4, width: 400, height: 1520, photoH: 360, gap: 10, padding: 10 },
+                vertical6: { cols: 1, rows: 6, width: 400, height: 2160, photoH: 340, gap: 8, padding: 10 },
+                polaroid: { cols: 1, rows: 3, width: 460, height: 1560, photoH: 420, gap: 40, padding: 20 },
+                grid4: { cols: 2, rows: 2, width: 800, height: 800, photoH: 380, gap: 10, padding: 10 },
+                photocard: { cols: 2, rows: 3, width: 700, height: 1050, photoH: 320, gap: 10, padding: 15 }
+            };
+
+            const FILTERS = {
+                normal: { css: 'none', canvas: (c, w, h) => {} },
+                grayscale: {
+                    css: 'grayscale(1)',
+                    canvas: (c, w, h) => {
+                        const d = c.getImageData(0, 0, w, h);
+                        for (let i = 0; i < d.data.length; i += 4) {
+                            const g = 0.299 * d.data[i] + 0.587 * d.data[i+1] + 0.114 * d.data[i+2];
+                            d.data[i] = d.data[i+1] = d.data[i+2] = g;
+                        }
+                        c.putImageData(d, 0, 0);
+                    }
+                },
+                sepia: {
+                    css: 'sepia(0.85)',
+                    canvas: (c, w, h) => {
+                        const d = c.getImageData(0, 0, w, h);
+                        for (let i = 0; i < d.data.length; i += 4) {
+                            const r = d.data[i], g = d.data[i+1], b = d.data[i+2];
+                            d.data[i]   = Math.min(255, r * 0.393 + g * 0.769 + b * 0.189);
+                            d.data[i+1] = Math.min(255, r * 0.349 + g * 0.686 + b * 0.168);
+                            d.data[i+2] = Math.min(255, r * 0.272 + g * 0.534 + b * 0.131);
+                        }
+                        c.putImageData(d, 0, 0);
+                    }
+                },
+                vintage: {
+                    css: 'sepia(0.5) contrast(1.1) brightness(1.05)',
+                    canvas: (c, w, h) => {
+                        const d = c.getImageData(0, 0, w, h);
+                        for (let i = 0; i < d.data.length; i += 4) {
+                            d.data[i]   = Math.min(255, d.data[i] * 0.9 + 30);
+                            d.data[i+1] = Math.min(255, d.data[i+1] * 0.8 + 20);
+                            d.data[i+2] = Math.min(255, d.data[i+2] * 0.6 + 10);
+                        }
+                        c.putImageData(d, 0, 0);
+                    }
+                },
+                warm: {
+                    css: 'saturate(1.2) hue-rotate(-10deg) brightness(1.05)',
+                    canvas: (c, w, h) => {
+                        const d = c.getImageData(0, 0, w, h);
+                        for (let i = 0; i < d.data.length; i += 4) {
+                            d.data[i] = Math.min(255, d.data[i] * 1.15 + 10);
+                            d.data[i+1] = Math.min(255, d.data[i+1] * 1.02);
+                            d.data[i+2] = Math.max(0, d.data[i+2] * 0.9);
+                        }
+                        c.putImageData(d, 0, 0);
+                    }
+                },
+                cool: {
+                    css: 'saturate(1.1) hue-rotate(15deg) brightness(1.02)',
+                    canvas: (c, w, h) => {
+                        const d = c.getImageData(0, 0, w, h);
+                        for (let i = 0; i < d.data.length; i += 4) {
+                            d.data[i] = Math.max(0, d.data[i] * 0.9);
+                            d.data[i+1] = Math.min(255, d.data[i+1] * 1.05);
+                            d.data[i+2] = Math.min(255, d.data[i+2] * 1.2 + 10);
+                        }
+                        c.putImageData(d, 0, 0);
+                    }
+                },
+                vivid: {
+                    css: 'saturate(1.6) contrast(1.15)',
+                    canvas: (c, w, h) => {
+                        const d = c.getImageData(0, 0, w, h);
+                        for (let i = 0; i < d.data.length; i += 4) {
+                            d.data[i]   = Math.min(255, (d.data[i] - 128) * 1.4 + 128);
+                            d.data[i+1] = Math.min(255, (d.data[i+1] - 128) * 1.4 + 128);
+                            d.data[i+2] = Math.min(255, (d.data[i+2] - 128) * 1.4 + 128);
+                        }
+                        c.putImageData(d, 0, 0);
+                    }
+                },
+                fade: {
+                    css: 'contrast(0.85) brightness(1.15) saturate(0.8)',
+                    canvas: (c, w, h) => {
+                        const d = c.getImageData(0, 0, w, h);
+                        for (let i = 0; i < d.data.length; i += 4) {
+                            d.data[i]   = d.data[i] * 0.85 + 30;
+                            d.data[i+1] = d.data[i+1] * 0.85 + 30;
+                            d.data[i+2] = d.data[i+2] * 0.85 + 30;
+                        }
+                        c.putImageData(d, 0, 0);
+                    }
+                },
+                dreamy: {
+                    css: 'brightness(1.1) saturate(1.2) hue-rotate(-15deg)',
+                    canvas: (c, w, h) => {
+                        const d = c.getImageData(0, 0, w, h);
+                        for (let i = 0; i < d.data.length; i += 4) {
+                            d.data[i]   = Math.min(255, d.data[i] * 1.1 + 15);
+                            d.data[i+1] = Math.min(255, d.data[i+1] * 1.05 + 5);
+                            d.data[i+2] = Math.min(255, d.data[i+2] * 1.15 + 20);
+                        }
+                        c.putImageData(d, 0, 0);
+                    }
+                },
+                noir: {
+                    css: 'grayscale(1) contrast(1.5) brightness(0.9)',
+                    canvas: (c, w, h) => {
+                        const d = c.getImageData(0, 0, w, h);
+                        for (let i = 0; i < d.data.length; i += 4) {
+                            const g = 0.299 * d.data[i] + 0.587 * d.data[i+1] + 0.114 * d.data[i+2];
+                            const v = Math.min(255, Math.max(0, (g - 128) * 1.5 + 128));
+                            d.data[i] = d.data[i+1] = d.data[i+2] = v;
+                        }
+                        c.putImageData(d, 0, 0);
+                    }
+                },
+                cyberpunk: {
+                    css: 'saturate(1.5) hue-rotate(180deg) contrast(1.1)',
+                    canvas: (c, w, h) => {
+                        const d = c.getImageData(0, 0, w, h);
+                        for (let i = 0; i < d.data.length; i += 4) {
+                            const r = d.data[i], g = d.data[i+1], b = d.data[i+2];
+                            d.data[i]   = Math.min(255, b * 1.2);
+                            d.data[i+1] = Math.min(255, g * 0.9);
+                            d.data[i+2] = Math.min(255, r * 1.3);
+                        }
+                        c.putImageData(d, 0, 0);
+                    }
+                },
+                pink: {
+                    css: 'saturate(1.3) hue-rotate(-25deg) brightness(1.05)',
+                    canvas: (c, w, h) => {
+                        const d = c.getImageData(0, 0, w, h);
+                        for (let i = 0; i < d.data.length; i += 4) {
+                            d.data[i]   = Math.min(255, d.data[i] * 1.15 + 15);
+                            d.data[i+1] = Math.min(255, d.data[i+1] * 0.9);
+                            d.data[i+2] = Math.min(255, d.data[i+2] * 1.05 + 10);
+                        }
+                        c.putImageData(d, 0, 0);
+                    }
+                }
+            };
+
+            const FRAMES = {
+                white: { bg: '#ffffff', photoBorder: '#e0e0e0', text: '#333333' },
+                black: { bg: '#000000', photoBorder: '#333333', text: '#ffffff' },
+                pink:  { bgSolid: '#ffb6c1', photoBorder: '#ffffff', text: '#5a2a4d' },
+                blue:  { bgSolid: '#4facfe', photoBorder: '#ffffff', text: '#003366' }
+            };
+
+            let toastTimer = null;
+            function showToast(msg, icon = '✅') {
+                toast.innerHTML = `<span>${icon}</span> ${msg}`;
+                toast.classList.add('show');
+                clearTimeout(toastTimer);
+                toastTimer = setTimeout(() => toast.classList.remove('show'), 2200);
+            }
+
+            async function enumerateCameras() {
+                try {
+                    const devices = await navigator.mediaDevices.enumerateDevices();
+                    videoDevices = devices.filter(d => d.kind === 'videoinput');
+                    if (videoDevices.length > 1) {
+                        cameraSelectSection.style.display = 'block';
+                        cameraSelect.innerHTML = '';
+                        videoDevices.forEach((d, i) => {
+                            const opt = document.createElement('option');
+                            opt.value = d.deviceId;
+                            opt.textContent = d.label || `Kamera ${i + 1}`;
+                            cameraSelect.appendChild(opt);
+                        });
+                        if (currentDeviceId) cameraSelect.value = currentDeviceId;
+                    } else {
+                        cameraSelectSection.style.display = 'none';
+                    }
+                } catch (e) {
+                    console.warn('Enumerate error:', e);
+                }
+            }
+
+            async function initCamera() {
+                try {
+                    if (stream) stream.getTracks().forEach(t => t.stop());
+
+                    const constraints = { audio: false, video: {} };
+                    if (currentDeviceId) {
+                        constraints.video.deviceId = { exact: currentDeviceId };
+                    } else {
+                        constraints.video.facingMode = { ideal: facingMode };
+                    }
+                    constraints.video.width = { ideal: 1280 };
+                    constraints.video.height = { ideal: 1280 };
+
+                    stream = await navigator.mediaDevices.getUserMedia(constraints);
+                    video.srcObject = stream;
+
+                    await new Promise((resolve) => {
+                        if (video.readyState >= 2) resolve();
+                        else video.onloadedmetadata = () => resolve();
+                    });
+                    await video.play();
+
+                    const track = stream.getVideoTracks()[0];
+                    const settings = track.getSettings();
+                    if (settings.facingMode) facingMode = settings.facingMode;
+
+                    cameraReady = true;
+                    permissionMsg.style.display = 'none';
+                    captureBtn.disabled = false;
+                    statusText.textContent = 'SIAP';
+
+                    await enumerateCameras();
+                    showToast('Kamera aktif!', '🎥');
+                } catch (err) {
+                    console.error('Camera error:', err);
+                    cameraReady = false;
+                    captureBtn.disabled = true;
+                    permissionMsg.style.display = 'flex';
+                    let errMsg = 'Tidak dapat mengakses kamera.';
+                    if (err.name === 'NotAllowedError' || err.name === 'SecurityError') {
+                        errMsg = 'Izin kamera ditolak. Buka pengaturan browser dan izinkan akses kamera, lalu muat ulang halaman.';
+                    } else if (err.name === 'NotFoundError') {
+                        errMsg = 'Kamera tidak ditemukan pada perangkat ini.';
+                    } else if (err.name === 'NotReadableError') {
+                        errMsg = 'Kamera sedang digunakan aplikasi lain. Tutup aplikasi lain lalu coba lagi.';
+                    } else if (err.name === 'OverconstrainedError') {
+                        errMsg = 'Kamera tidak mendukung pengaturan yang diminta. Coba kamera lain.';
+                    }
+                    permText.textContent = errMsg;
+                    showToast('Kamera tidak tersedia', '⚠️');
+                }
+            }
+
+            enableCamBtn.addEventListener('click', initCamera);
+
+            switchCamBtn.addEventListener('click', async () => {
+                if (videoDevices.length > 1) {
+                    const currentIdx = videoDevices.findIndex(d => d.deviceId === currentDeviceId);
+                    const nextIdx = (currentIdx + 1) % videoDevices.length;
+                    currentDeviceId = videoDevices[nextIdx].deviceId;
+                    cameraSelect.value = currentDeviceId;
+                } else {
+                    facingMode = facingMode === 'user' ? 'environment' : 'user';
+                    currentDeviceId = null;
+                }
+                await initCamera();
+            });
+
+            cameraSelect.addEventListener('change', async (e) => {
+                currentDeviceId = e.target.value;
+                await initCamera();
+            });
+
+            function captureFrame() {
+                const vw = video.videoWidth;
+                const vh = video.videoHeight;
+                if (!vw || !vh) return null;
+
+                const targetW = 800;
+                const targetH = Math.round(targetW * (vh / vw));
+                canvas.width = targetW;
+                canvas.height = targetH;
+
+                ctx.save();
+                if (facingMode === 'user') {
+                    ctx.translate(targetW, 0);
+                    ctx.scale(-1, 1);
+                }
+                ctx.drawImage(video, 0, 0, targetW, targetH);
+                ctx.restore();
+
+                const photoCanvas = document.createElement('canvas');
+                photoCanvas.width = targetW;
+                photoCanvas.height = targetH;
+                const pCtx = photoCanvas.getContext('2d');
+                pCtx.drawImage(canvas, 0, 0);
+
+                try {
+                    FILTERS[currentFilter].canvas(pCtx, targetW, targetH);
+                } catch (e) { console.warn('Filter error:', e); }
+
+                return photoCanvas;
+            }
+
+            function playShutter() {
+                try {
+                    const AC = window.AudioContext || window.webkitAudioContext;
+                    if (!AC) return;
+                    const actx = new AC();
+                    const osc = actx.createOscillator();
+                    const gain = actx.createGain();
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(1200, actx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(200, actx.currentTime + 0.1);
+                    gain.gain.setValueAtTime(0.12, actx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + 0.12);
+                    osc.connect(gain);
+                    gain.connect(actx.destination);
+                    osc.start();
+                    osc.stop(actx.currentTime + 0.12);
+                } catch (e) {}
+            }
+
+            function vibrate(pattern) {
+                if (navigator.vibrate) {
+                    try { navigator.vibrate(pattern); } catch (e) {}
+                }
+            }
+
+            function doFlash() {
+                flash.classList.add('active');
+                setTimeout(() => flash.classList.remove('active'), 400);
+            }
+
+            function delay(ms) { return new Promise(res => setTimeout(res, ms)); }
+
+            function getPhotoCount() {
+                if (currentMode === 'single') return 1;
+                const cfg = STRIP_CONFIG[currentStrip];
+                return cfg.cols * cfg.rows;
+            }
+
+            async function startCapture() {
+                if (isCapturing || !cameraReady) return;
+
+                let wakeLock = null;
+                try {
+                    if ('wakeLock' in navigator) {
+                        wakeLock = await navigator.wakeLock.request('screen');
+                    }
+                } catch (e) {}
+
+                isCapturing = true;
+                capturedPhotos = [];
+                shotsPreview.innerHTML = '';
+                captureBtn.disabled = true;
+                retakeBtn.disabled = true;
+                switchCamBtn.disabled = true;
+                cameraSelect.disabled = true;
+
+                const total = getPhotoCount();
+                const countdownStart = 3;
+
+                for (let i = 0; i < total; i++) {
+                    statusText.textContent = `FOTO ${i + 1}/${total}`;
+
+                    for (let c = countdownStart; c > 0; c--) {
+                        showCountdown(c);
+                        vibrate(50);
+                        await delay(800);
+                    }
+                    showCountdown('📸');
+                    vibrate([100, 50, 100]);
+                    await delay(350);
+
+                    doFlash();
+                    playShutter();
+                    const photoCanvas = captureFrame();
+                    if (photoCanvas) {
+                        capturedPhotos.push(photoCanvas);
+                        addThumbnail(photoCanvas);
+                    }
+
+                    await delay(600);
+                    removeCountdown();
+
+                    if (i < total - 1) {
+                        statusText.textContent = 'BERSIAP...';
+                        await delay(700);
+                    }
+                }
+
+                statusText.textContent = 'SELESAI';
+                isCapturing = false;
+                retakeBtn.disabled = false;
+                switchCamBtn.disabled = false;
+                cameraSelect.disabled = false;
+
+                if (wakeLock) { try { await wakeLock.release(); } catch (e) {} }
+
+                await delay(300);
+                composeStrip();
+            }
+
+            let countdownEl = null;
+            function showCountdown(val) {
+                removeCountdown();
+                countdownEl = document.createElement('div');
+                countdownEl.className = 'countdown-big';
+                countdownEl.textContent = val;
+                document.querySelector('.camera-frame').appendChild(countdownEl);
+            }
+            function removeCountdown() {
+                if (countdownEl && countdownEl.parentNode) {
+                    countdownEl.parentNode.removeChild(countdownEl);
+                }
+                countdownEl = null;
+            }
+
+            function addThumbnail(photoCanvas) {
+                const img = document.createElement('img');
+                img.className = 'shot-thumb';
+                img.src = photoCanvas.toDataURL('image/jpeg', 0.6);
+                shotsPreview.appendChild(img);
+                shotsPreview.scrollLeft = shotsPreview.scrollWidth;
+            }
+
+            function composeStrip() {
+                if (capturedPhotos.length === 0) return;
+
+                const cfg = STRIP_CONFIG[currentStrip];
+                const frame = FRAMES[currentFrame];
+
+                const totalWidth = cfg.width;
+                const totalHeight = cfg.height;
+                const outputCanvas = document.createElement('canvas');
+                outputCanvas.width = totalWidth;
+                outputCanvas.height = totalHeight;
+                const outCtx = outputCanvas.getContext('2d');
+
+                if (currentFrame === 'pink' || currentFrame === 'blue') {
+                    const grad = outCtx.createLinearGradient(0, 0, totalWidth, totalHeight);
+                    if (currentFrame === 'pink') {
+                        grad.addColorStop(0, '#ff9a9e');
+                        grad.addColorStop(1, '#fecfef');
+                    } else {
+                        grad.addColorStop(0, '#4facfe');
+                        grad.addColorStop(1, '#00f2fe');
+                    }
+                    outCtx.fillStyle = grad;
+                } else {
+                    outCtx.fillStyle = frame.bg;
+                }
+                outCtx.fillRect(0, 0, totalWidth, totalHeight);
+
+                const availW = totalWidth - cfg.padding * 2;
+                const availH = totalHeight - cfg.padding * 2;
+
+                let photoW, photoH;
+                if (currentStrip === 'polaroid') {
+                    photoW = availW;
+                    photoH = cfg.photoH;
+                } else if (currentStrip === 'grid4' || currentStrip === 'photocard') {
+                    photoW = (availW - cfg.gap * (cfg.cols - 1)) / cfg.cols;
+                    photoH = (availH - cfg.gap * (cfg.rows - 1)) / cfg.rows;
+                } else {
+                    photoW = availW;
+                    photoH = cfg.photoH;
+                }
+
+                let idx = 0;
+                for (let row = 0; row < cfg.rows; row++) {
+                    for (let col = 0; col < cfg.cols; col++) {
+                        if (idx >= capturedPhotos.length) break;
+
+                        let x, y;
+                        if (currentStrip === 'polaroid') {
+                            const polaroidGap = cfg.gap;
+                            const captionSpace = polaroidGap - 10;
+                            x = cfg.padding;
+                            y = cfg.padding + row * (photoH + captionSpace + cfg.gap);
+                        } else {
+                            x = cfg.padding + col * (photoW + cfg.gap);
+                            y = cfg.padding + row * (photoH + cfg.gap);
+                        }
+
+                        const photo = capturedPhotos[idx];
+                        outCtx.save();
+                        roundRect(outCtx, x, y, photoW, photoH, 6);
+                        outCtx.clip();
+                        drawImageCover(outCtx, photo, x, y, photoW, photoH);
+                        outCtx.restore();
+
+                        if (currentFrame === 'white' || currentFrame === 'black') {
+                            outCtx.strokeStyle = frame.photoBorder;
+                            outCtx.lineWidth = 2;
+                        } else {
+                            outCtx.strokeStyle = 'rgba(255,255,255,0.7)';
+                            outCtx.lineWidth = 3;
+                        }
+                        roundRect(outCtx, x, y, photoW, photoH, 6);
+                        outCtx.stroke();
+
+                        idx++;
+                    }
+                }
+
+                const footerY = totalHeight - cfg.padding - 4;
+                outCtx.fillStyle = frame.text;
+                outCtx.font = `bold ${currentStrip === 'photocard' ? 14 : 16}px "Segoe UI", Arial, sans-serif`;
+                outCtx.textAlign = 'center';
+                outCtx.textBaseline = 'bottom';
+                outCtx.globalAlpha = 0.85;
+
+                if (currentStrip !== 'photocard') {
+                    const dateStr = new Date().toLocaleDateString('id-ID', {
+                        day: '2-digit', month: 'short', year: 'numeric'
+                    });
+                    outCtx.fillText('📸 PHOTOBOOTH • ' + dateStr, totalWidth / 2, footerY);
+                } else {
+                    const dateStr = new Date().toLocaleDateString('id-ID', {
+                        day: '2-digit', month: '2-digit', year: '2-digit'
+                    });
+                    outCtx.font = 'bold 11px "Segoe UI", Arial, sans-serif';
+                    outCtx.fillText('📸 PHOTOBOOTH', totalWidth / 2, footerY - 14);
+                    outCtx.font = '10px "Segoe UI", Arial, sans-serif';
+                    outCtx.fillText(dateStr, totalWidth / 2, footerY);
+                }
+                outCtx.globalAlpha = 1;
+
+                const dataUrl = outputCanvas.toDataURL('image/jpeg', 0.9);
+                resultImage.src = dataUrl;
+                resultModal.classList.add('active');
+
+                vibrate([200, 100, 200]);
+                showToast('Foto berhasil dibuat!', '🎉');
+            }
+
+            function roundRect(ctx, x, y, w, h, r) {
+                ctx.beginPath();
+                ctx.moveTo(x + r, y);
+                ctx.lineTo(x + w - r, y);
+                ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+                ctx.lineTo(x + w, y + h - r);
+                ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+                ctx.lineTo(x + r, y + h);
+                ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+                ctx.lineTo(x, y + r);
+                ctx.quadraticCurveTo(x, y, x + r, y);
+                ctx.closePath();
+            }
+
+            function drawImageCover(ctx, img, x, y, w, h) {
+                const iw = img.width;
+                const ih = img.height;
+                const imgRatio = iw / ih;
+                const targetRatio = w / h;
+                let sx, sy, sw, sh;
+
+                if (imgRatio > targetRatio) {
+                    sh = ih; sw = ih * targetRatio;
+                    sx = (iw - sw) / 2; sy = 0;
+                } else {
+                    sw = iw; sh = iw / targetRatio;
+                    sx = 0; sy = (ih - sh) / 2;
+                }
+                ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
+            }
+
+            captureBtn.addEventListener('click', startCapture);
+
+            retakeBtn.addEventListener('click', () => {
+                capturedPhotos = [];
+                shotsPreview.innerHTML = '';
+                retakeBtn.disabled = true;
+                captureBtn.disabled = false;
+                statusText.textContent = 'SIAP';
+                showToast('Siap memotret lagi', '🔄');
+            });
+
+            closeModalBtn.addEventListener('click', () => {
+                resultModal.classList.remove('active');
+                capturedPhotos = [];
+                shotsPreview.innerHTML = '';
+                retakeBtn.disabled = true;
+                captureBtn.disabled = false;
+                statusText.textContent = 'SIAP';
+            });
+
+            downloadBtn.addEventListener('click', () => {
+                if (!resultImage.src) return;
+                const link = document.createElement('a');
+                const ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+                link.download = `photobooth-${currentStrip}-${ts}.jpg`;
+                link.href = resultImage.src;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                showToast('Foto diunduh!', '⬇️');
+                vibrate(100);
+            });
+
+            document.querySelectorAll('.strip-option').forEach(opt => {
+                opt.addEventListener('click', () => {
+                    document.querySelectorAll('.strip-option').forEach(o => o.classList.remove('active'));
+                    opt.classList.add('active');
+                    currentStrip = opt.dataset.strip;
+                    retakeBtn.click();
+                    vibrate(30);
+                    showToast(`Strip: ${opt.textContent.trim()}`, '🎞️');
+                });
+            });
+
+            document.querySelectorAll('.filter-option').forEach(opt => {
+                opt.addEventListener('click', () => {
+                    document.querySelectorAll('.filter-option').forEach(o => o.classList.remove('active'));
+                    opt.classList.add('active');
+                    currentFilter = opt.dataset.filter;
+                    video.style.filter = FILTERS[currentFilter].css;
+                    vibrate(30);
+                    showToast(`Filter: ${opt.textContent.trim()}`, '🎨');
+                });
+            });
+
+            document.querySelectorAll('.frame-option').forEach(opt => {
+                opt.addEventListener('click', () => {
+                    document.querySelectorAll('.frame-option').forEach(o => o.classList.remove('active'));
+                    opt.classList.add('active');
+                    currentFrame = opt.dataset.frame;
+                    vibrate(30);
+                    showToast(`Bingkai: ${opt.textContent.trim()}`, '🖼️');
+                });
+            });
+
+            document.querySelectorAll('.mode-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    currentMode = btn.dataset.mode;
+                    if (currentMode === 'single') {
+                        stripSection.style.opacity = '0.3';
+                        stripSection.style.pointerEvents = 'none';
+                    } else {
+                        stripSection.style.opacity = '1';
+                        stripSection.style.pointerEvents = 'auto';
+                    }
+                    retakeBtn.click();
+                    vibrate(30);
+                });
+            });
+
+            resultModal.addEventListener('click', (e) => {
+                if (e.target === resultModal) closeModalBtn.click();
+            });
+
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden && video.srcObject) {
+                    video.pause();
+                } else if (!document.hidden && video.srcObject) {
+                    video.play().catch(() => {});
+                }
+            });
+
+            window.addEventListener('beforeunload', () => {
+                if (stream) stream.getTracks().forEach(t => t.stop());
+            });
+
+            window.addEventListener('orientationchange', () => {
+                setTimeout(() => {
+                    if (cameraReady && video.srcObject) video.play().catch(() => {});
+                }, 300);
+            });
+
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                permissionMsg.querySelector('h3').textContent = '⚠️ Browser Tidak Didukung';
+                permText.textContent = 'Browser Anda tidak mendukung akses kamera. Gunakan Chrome, Safari, atau Edge terbaru.';
+                enableCamBtn.style.display = 'none';
+            }
+        })();
+    </script>
+</body>
+</html>

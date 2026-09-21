@@ -1,0 +1,44 @@
+{
+    "name": "Photobooth - Studio Foto Saku",
+    "short_name": "Photobooth",
+    "description": "Photobooth offline dengan berbagai strip dan filter. Semua foto diproses di perangkat Anda.",
+    "start_url": "./index.html",
+    "scope": "./",
+    "display": "standalone",
+    "orientation": "portrait",
+    "background_color": "#1a1a2e",
+    "theme_color": "#1a1a2e",
+    "lang": "id",
+    "categories": ["photo", "entertainment", "utilities"],
+    "icons": [
+        {
+            "src": "icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ],
+    "shortcuts": [
+        {
+            "name": "Mulai Foto Cepat",
+            "short_name": "Foto",
+            "description": "Langsung buka kamera untuk memotret",
+            "url": "./index.html?action=capture",
+            "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
+        }
+    ],
+    "screenshots": [
+        {
+            "src": "icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "form_factor": "narrow"
+        }
+    ]
+}
